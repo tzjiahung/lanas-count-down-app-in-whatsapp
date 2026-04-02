@@ -18,6 +18,13 @@ let qrCodeData  = null;
 let isConnected = false;
 let cronStarted = false;
 
+app.get('/groups', async (req, res) => {
+  if (!isConnected) return res.send('<h1>⏳ Bot not connected yet.</h1>');
+  const groups = await sock.groupFetchAllParticipating();
+  const names = Object.values(groups).map(g => g.subject);
+  res.send(`<h1>Your WhatsApp Groups</h1><ul>${names.map(n => `<li>${n}</li>`).join('')}</ul>`);
+});
+
 app.get('/', async (req, res) => {
   if (isConnected) {
     return res.send(`<h1>✅ Bot is connected and running!</h1><p>Sending daily countdown to <strong>${GROUP_NAME}</strong> at ${SEND_HOUR}:00.</p>`);
