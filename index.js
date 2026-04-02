@@ -16,6 +16,12 @@ const PORT = process.env.PORT || 3000;
 let qrCodeData = null;
 let isReady    = false;
 
+app.get('/test', async (req, res) => {
+  if (!isReady) return res.send('<h1>⏳ Bot not connected yet.</h1>');
+  await sendCountdown();
+  res.send('<h1>✅ Test message sent! Check your WhatsApp group.</h1>');
+});
+
 app.get('/groups', async (req, res) => {
   if (!isReady) return res.send('<h1>⏳ Bot not connected yet.</h1>');
   const chats = await client.getChats();
