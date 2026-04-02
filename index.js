@@ -52,10 +52,6 @@ app.listen(PORT, () => console.log(`🌐 Open the app URL to scan the QR code (p
 // ─── WhatsApp Client ───────────────────────────────────────────────────────────
 const client = new Client({
   authStrategy: new LocalAuth(),
-  webVersionCache: {
-    type: 'remote',
-    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-  },
   puppeteer: {
     timeout: 120000,
     protocolTimeout: 120000,
@@ -64,6 +60,10 @@ const client = new Client({
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--no-zygote',
+      '--single-process',
+      '--disable-extensions',
+      '--disable-background-networking',
     ],
   },
 });
