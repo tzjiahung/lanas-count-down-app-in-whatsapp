@@ -1,11 +1,11 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const cron = require('node-cron');
 const express = require('express');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const GROUP_NAME  = process.env.GROUP_NAME  || 'My Group';   // exact WhatsApp group name
-const SEND_HOUR   = process.env.SEND_HOUR   || '8';          // 24h format, e.g. '8' = 8 AM
+const GROUP_NAME  = process.env.GROUP_NAME  || 'My Group';
+const SEND_HOUR   = process.env.SEND_HOUR   || '8';
 const TIMEZONE    = process.env.TIMEZONE    || 'UTC';
 const TARGET_DATE = '2026-04-17';
 // ──────────────────────────────────────────────────────────────────────────────
@@ -13,26 +13,18 @@ const TARGET_DATE = '2026-04-17';
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-let qrCodeData = null;
-let isReady    = false;
+let sock        = null;
+let qrCodeData  = null;
+let isConnected = false;
+let cronStarted = false;
 
-// Simple web page to show the QR code for scanning
 app.get('/', async (req, res) => {
-  if (isReady) {
-    return res.send(`
-      <h1>✅ Bot is connected and running!</h1>
-      <p>Daily countdown messages are being sent to <strong>${GROUP_NAME}</strong> every day at ${SEND_HOUR}:00.</p>
-    `);
+  if (isConnected) {
+    return res.send(`<h1>✅ Bot is connected and running!</h1><p>Sending daily countdown to <strong>${GROUP_NAME}</strong> at ${SEND_HOUR}:00.</p>`);
   }
-
   if (!qrCodeData) {
-    return res.send(`
-      <h1>⏳ Starting up...</h1>
-      <p>Please refresh this page in a few seconds.</p>
-      <meta http-equiv="refresh" content="3">
-    `);
+    return res.send(`<h1>⏳ Starting up...</h1><p>Please refresh in a few seconds.</p><meta http-equiv="refresh" content="3">`);
   }
-
   const qrImage = await qrcode.toDataURL(qrCodeData);
   res.send(`
     <h1>📱 Scan this QR code with WhatsApp</h1>
@@ -42,48 +34,48 @@ app.get('/', async (req, res) => {
       <li>Scan the QR code below</li>
     </ol>
     <img src="${qrImage}" style="width:300px;height:300px;" />
-    <p><em>QR codes expire after ~20 seconds. Refresh this page to get a new one.</em></p>
+    <p><em>QR codes expire. Refresh this page to get a new one if needed.</em></p>
     <meta http-equiv="refresh" content="20">
   `);
 });
 
 app.listen(PORT, () => console.log(`🌐 Open the app URL to scan the QR code (port ${PORT})`));
 
-// ─── WhatsApp Client ───────────────────────────────────────────────────────────
-const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    timeout: 120000,
-    protocolTimeout: 120000,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--no-zygote',
-      '--single-process',
-      '--disable-extensions',
-      '--disable-background-networking',
-    ],
-  },
-});
+// ─── WhatsApp Connection ───────────────────────────────────────────────────────
+async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
-client.on('qr', (qr) => {
-  qrCodeData = qr;
-  console.log('QR code ready — open the app URL in a browser to scan it');
-});
+  sock = makeWASocket({ auth: state, printQRInTerminal: false });
 
-client.on('ready', () => {
-  isReady    = true;
-  qrCodeData = null;
-  console.log('✅ WhatsApp connected! Bot is running.');
-  scheduleCountdown();
-});
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-client.on('disconnected', (reason) => {
-  console.log('⚠️  WhatsApp disconnected:', reason);
-  isReady = false;
-});
+    if (qr) {
+      qrCodeData = qr;
+      console.log('QR code ready — open the app URL in a browser to scan it');
+    }
+
+    if (connection === 'close') {
+      isConnected = false;
+      const code = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = code !== DisconnectReason.loggedOut;
+      console.log('Connection closed. Reconnecting:', shouldReconnect);
+      if (shouldReconnect) connectToWhatsApp();
+    }
+
+    if (connection === 'open') {
+      isConnected = true;
+      qrCodeData  = null;
+      console.log('✅ WhatsApp connected! Bot is running.');
+      if (!cronStarted) {
+        scheduleCountdown();
+        cronStarted = true;
+      }
+    }
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+}
 
 // ─── Countdown Logic ───────────────────────────────────────────────────────────
 function getDaysLeft() {
@@ -95,7 +87,7 @@ function getDaysLeft() {
 }
 
 function buildMessage(daysLeft) {
-  if (daysLeft <= 0)  return null; // trip has passed, stop sending
+  if (daysLeft <= 0)  return null;
   if (daysLeft === 1) return '🔥 *ONLY 1 DAY LEFT!!* ✈️🌴';
   return `🔥 *ONLY ${daysLeft} DAYS LEFT!!* ✈️🌴`;
 }
@@ -109,22 +101,21 @@ async function sendCountdown() {
     return;
   }
 
-  const chats = await client.getChats();
-  const group  = chats.find(chat => chat.isGroup && chat.name === GROUP_NAME);
+  const groups = Object.values(await sock.groupFetchAllParticipating());
+  const group  = groups.find(g => g.subject === GROUP_NAME);
 
   if (!group) {
-    console.error(`❌ Group "${GROUP_NAME}" not found. Double-check the GROUP_NAME setting.`);
+    console.error(`❌ Group "${GROUP_NAME}" not found. Check GROUP_NAME setting.`);
     return;
   }
 
-  await group.sendMessage(message);
+  await sock.sendMessage(group.id, { text: message });
   console.log(`✅ Sent: ${message}`);
 }
 
 function scheduleCountdown() {
-  // Runs every day at SEND_HOUR:00
   cron.schedule(`0 ${SEND_HOUR} * * *`, sendCountdown, { timezone: TIMEZONE });
   console.log(`📅 Scheduled: daily at ${SEND_HOUR}:00 (${TIMEZONE})`);
 }
 
-client.initialize();
+connectToWhatsApp();
