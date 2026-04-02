@@ -53,6 +53,7 @@ app.listen(PORT, () => console.log(`🌐 Open the app URL to scan the QR code (p
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
+    executablePath: '/usr/bin/chromium',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
