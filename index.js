@@ -5,7 +5,7 @@ const express = require('express');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const GROUP_NAME  = process.env.GROUP_NAME  || 'My Group';
-const SEND_HOUR   = process.env.SEND_HOUR   || '8';
+const SEND_HOUR   = process.env.SEND_HOUR   || '21';
 const TIMEZONE    = process.env.TIMEZONE    || 'UTC';
 const TARGET_DATE = '2026-04-17';
 // ──────────────────────────────────────────────────────────────────────────────
