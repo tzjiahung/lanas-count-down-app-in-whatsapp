@@ -1,13 +1,17 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cron = require('node-cron');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const GROUP_NAME  = process.env.GROUP_NAME  || 'pamp-lana-test';
+const GROUP_NAME  = process.env.GROUP_NAME  || '🇭🇰🇹🇼🇸🇬 where next? 🇹🇭🇯🇵';
 const SEND_HOUR   = process.env.SEND_HOUR   || '21';
 const TIMEZONE    = process.env.TIMEZONE    || 'UTC';
 const TARGET_DATE = '2026-04-17';
+const GIFS_DIR    = path.join(__dirname, 'gifs');
+const USED_FILE   = path.join(__dirname, 'used_gifs.json');
 // ──────────────────────────────────────────────────────────────────────────────
 
 const app  = express();
@@ -88,6 +92,26 @@ client.on('disconnected', (reason) => {
   isReady = false;
 });
 
+// ─── Gif Picker (no repeats until all used) ────────────────────────────────────
+function pickGif() {
+  const allGifs = fs.readdirSync(GIFS_DIR).filter(f => f.endsWith('.gif'));
+
+  let used = [];
+  if (fs.existsSync(USED_FILE)) {
+    used = JSON.parse(fs.readFileSync(USED_FILE, 'utf8'));
+  }
+
+  const remaining = allGifs.filter(f => !used.includes(f));
+  const pool = remaining.length > 0 ? remaining : allGifs; // reset when all used
+
+  const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+  const newUsed = remaining.length > 0 ? [...used, chosen] : [chosen];
+  fs.writeFileSync(USED_FILE, JSON.stringify(newUsed));
+
+  return chosen;
+}
+
 // ─── Countdown Logic ───────────────────────────────────────────────────────────
 function getDaysLeft() {
   const today  = new Date();
@@ -97,15 +121,16 @@ function getDaysLeft() {
   return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
 }
 
-function buildMessage(daysLeft) {
-  if (daysLeft <= 0)  return null;
-  if (daysLeft === 1) return '🔥 *ONLY 1 DAY LEFT!!* ✈️🌴';
-  return `🔥 *ONLY ${daysLeft} DAYS LEFT!!* ✈️🌴`;
+function buildMessage(daysLeft, name) {
+  if (daysLeft <= 0) return null;
+  return `heheheh only ${daysLeft} day${daysLeft === 1 ? '' : 's'} till our pamplona girls trip!!! ❤️\ntoday ${name} is counting down for us keke\nremember to look through our itinerary here: https://docs.google.com/document/d/1XTdl6_gjwZ4XHcFLudFPn5mKciNnzpM8gQPx9OdfyCI/edit?usp=sharing\nmeet yall very soon!`;
 }
 
 async function sendCountdown() {
   const daysLeft = getDaysLeft();
-  const message  = buildMessage(daysLeft);
+  const gifFile  = pickGif();
+  const name     = path.basename(gifFile, '.gif');
+  const message  = buildMessage(daysLeft, name);
 
   if (!message) {
     console.log('📅 Target date reached — no message sent.');
@@ -120,8 +145,9 @@ async function sendCountdown() {
     return;
   }
 
-  await group.sendMessage(message);
-  console.log(`✅ Sent: ${message}`);
+  const media = MessageMedia.fromFilePath(path.join(GIFS_DIR, gifFile));
+  await group.sendMessage(media, { caption: message });
+  console.log(`✅ Sent with gif "${gifFile}": ${message}`);
 }
 
 function scheduleCountdown() {
