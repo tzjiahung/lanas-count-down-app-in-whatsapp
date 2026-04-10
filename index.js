@@ -145,7 +145,8 @@ async function sendCountdown() {
     return;
   }
 
-  const media = MessageMedia.fromFilePath(path.join(GIFS_DIR, gifFile));
+  const gifData = fs.readFileSync(path.join(GIFS_DIR, gifFile)).toString('base64');
+  const media = new MessageMedia('image/gif', gifData, gifFile);
   await group.sendMessage(media, { caption: message });
   console.log(`✅ Sent with gif "${gifFile}": ${message}`);
 }
