@@ -94,7 +94,7 @@ client.on('disconnected', (reason) => {
 
 // ─── Gif Picker (no repeats until all used) ────────────────────────────────────
 function pickGif() {
-  const allGifs = fs.readdirSync(GIFS_DIR).filter(f => f.endsWith('.gif'));
+  const allGifs = fs.readdirSync(GIFS_DIR).filter(f => f.endsWith('.gif') || f.endsWith('.mp4'));
 
   let used = [];
   if (fs.existsSync(USED_FILE)) {
@@ -129,7 +129,7 @@ function buildMessage(daysLeft, name) {
 async function sendCountdown() {
   const daysLeft = getDaysLeft();
   const gifFile  = pickGif();
-  const name     = path.basename(gifFile, '.gif');
+  const name     = path.basename(gifFile, path.extname(gifFile));
   const message  = buildMessage(daysLeft, name);
 
   if (!message) {
@@ -145,9 +145,10 @@ async function sendCountdown() {
     return;
   }
 
-  const gifData = fs.readFileSync(path.join(GIFS_DIR, gifFile)).toString('base64');
-  const media = new MessageMedia('image/gif', gifData, gifFile);
-  await group.sendMessage(media, { caption: message });
+  const fileData = fs.readFileSync(path.join(GIFS_DIR, gifFile)).toString('base64');
+  const isVideo = gifFile.endsWith('.mp4');
+  const media = new MessageMedia(isVideo ? 'video/mp4' : 'image/gif', fileData, gifFile);
+  await group.sendMessage(media, { caption: message, sendMediaAsGif: isVideo });
   console.log(`✅ Sent with gif "${gifFile}": ${message}`);
 }
 
