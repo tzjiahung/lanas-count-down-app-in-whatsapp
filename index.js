@@ -123,7 +123,7 @@ function getDaysLeft() {
 
 function buildMessage(daysLeft, name) {
   if (daysLeft <= 0) return null;
-  return `heheheh only ${daysLeft} day${daysLeft === 1 ? '' : 's'} till our pamplona girls trip!!! ❤️\n${name} is counting down for us today keke\ndon't forget to look through our itinerary here: https://docs.google.com/document/d/1XTdl6_gjwZ4XHcFLudFPn5mKciNnzpM8gQPx9OdfyCI/edit?usp=sharing\nmeet yall very soon!`;
+  return `heheheh only ${daysLeft} day${daysLeft === 1 ? '' : 's'} till our pamplona girls trip!!! ❤️\n${name} is counting down for us today keke\n\ndon't forget to check out our itinerary:\nhttps://docs.google.com/document/d/1XTdl6_gjwZ4XHcFLudFPn5mKciNnzpM8gQPx9OdfyCI/edit?usp=sharing\n\nsee yall very soon!`;
 }
 
 async function sendCountdown() {
