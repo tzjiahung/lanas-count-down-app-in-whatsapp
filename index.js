@@ -146,7 +146,7 @@ async function sendCountdown() {
   }
 
   const media = MessageMedia.fromFilePath(path.join(GIFS_DIR, gifFile));
-  await group.sendMessage(media, { caption: message });
+  await group.sendMessage(media, { caption: message, sendMediaAsGif: true });
   console.log(`✅ Sent with gif "${gifFile}": ${message}`);
 }
 
