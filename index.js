@@ -8,6 +8,7 @@ const path = require('path');
 // ─── Config ───────────────────────────────────────────────────────────────────
 const GROUP_NAME  = process.env.GROUP_NAME  || '🇭🇰🇹🇼🇸🇬 where next? 🇹🇭🇯🇵';
 const SEND_HOUR   = process.env.SEND_HOUR   || '21';
+const SEND_MINUTE = process.env.SEND_MINUTE || '15';
 const TIMEZONE    = process.env.TIMEZONE    || 'UTC';
 const TARGET_DATE = '2026-04-17';
 const GIFS_DIR    = path.join(__dirname, 'gifs');
@@ -153,8 +154,8 @@ async function sendCountdown() {
 }
 
 function scheduleCountdown() {
-  cron.schedule(`0 ${SEND_HOUR} * * *`, sendCountdown, { timezone: TIMEZONE });
-  console.log(`📅 Scheduled: daily at ${SEND_HOUR}:00 (${TIMEZONE})`);
+  cron.schedule(`${SEND_MINUTE} ${SEND_HOUR} * * *`, sendCountdown, { timezone: TIMEZONE });
+  console.log(`📅 Scheduled: daily at ${SEND_HOUR}:${SEND_MINUTE} (${TIMEZONE})`);
 }
 
 client.initialize();
